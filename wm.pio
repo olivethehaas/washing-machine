@@ -1,0 +1,80 @@
+;
+; Copyright (c) 2021 Raspberry Pi (Trading) Ltd.
+;
+; SPDX-License-Identifier: BSD-3-Clause
+;
+
+.program wm
+
+; Sample bits using an external clock, and push groups of bits into the RX FIFO.
+; - IN pin 0 is the data pin
+; - IN pin 1 is the clock pin
+; - IN pin 2 is the toggle pin
+; - Autopush is enabled, threshold 8
+;
+; This program samples data with each rising clock edge (like mode 0 or mode 3
+; SPI). The data is actually sampled one system clock cycle after the rising
+; edge is observed
+; signals are reversed because of level shift
+.wrap_target
+    set x,7
+    wait 1 pin 2        ; wait Falling edge Toggle line 
+    wait 0 pin 2        ; should be a Command
+loop:
+    wait 0 pin 1        ; clock sample on rising edge
+    wait 1 pin 1
+    in pins, 1          ; bit --> ISR 
+    jmp x-- loop
+.wrap
+% c-sdk {
+
+#include "hardware/gpio.h"
+
+static inline void wm_program_init(PIO pio, uint sm, uint offset, uint pin) {
+    pio_sm_config c = wm_program_get_default_config(offset);
+
+    // Set the IN base pin to the provided `pin` parameter. This is the data
+    // pin, and the next-numbered GPIO is used as the clock pin.
+    sm_config_set_in_pins(&c, pin);
+    // Set the pin directions to input at the PIO
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 3, false);
+
+
+    // Connect these GPIOs to this PIO block
+    pio_gpio_init(pio, pin);
+    pio_gpio_init(pio, pin + 1);
+    pio_gpio_init(pio, pin + 2);
+
+    // Reverse input because of voltage conversion
+
+    gpio_set_inover(pin, GPIO_OVERRIDE_INVERT);
+    gpio_set_inover(pin+1, GPIO_OVERRIDE_INVERT);
+    gpio_set_inover(pin+2, GPIO_OVERRIDE_INVERT);
+
+
+    // Shifting to right LSB first
+    sm_config_set_in_shift(
+        &c,
+        true, // Shift-to-right
+        true,  // Autopush enabled
+        8      // Autopush threshold = 8
+    );
+
+    // We only receive, so disable the TX FIFO to make the RX FIFO deeper.
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+    // Load our configuration, and start the program from the beginning
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+static inline char wm_program_getc(PIO pio, uint sm) {
+    // 8-bit read from the uppermost byte of the FIFO, as data is left-justified
+    // transtypage pointeur io_rw_32 vers 8 bits
+    io_rw_8 *rxfifo_shift = (io_rw_8*)&pio->rxf[sm] + 3; 
+    while (pio_sm_is_rx_fifo_empty(pio, sm))
+        tight_loop_contents();
+    return (char)*rxfifo_shift;
+}
+
+%}
