@@ -5,9 +5,9 @@ DATA I/O bidirectionnel
 -envoi de 8 bits sur DI/O avec la lecture de chaqu'un des bits sur chaque front montant de CLOCK
 
 STB -------|______________________
-	       *	   *
+               *           *
 Clock -----|___|-------|___|-------
-               *	   *
+               *           * 
 Data --------< D0  >-----< D1 >-----
 
 
