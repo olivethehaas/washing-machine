@@ -178,12 +178,6 @@ err_t getIP(char *URL, ip_addr_t *ipResult)
 }
 
 
-
-
-
-
-
-
 int main()
  {
     stdio_init_all();
@@ -238,5 +232,8 @@ int main()
     cyw43_arch_lwip_begin();
     err_t err = altcp_connect(pcb, &ip, 80, altcp_client_connected);
     cyw43_arch_lwip_end();
-    return 0;
+    while (true)
+    {
+        sleep_ms(500);
+    }
 }
