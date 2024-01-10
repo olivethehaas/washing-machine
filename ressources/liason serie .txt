@@ -1,0 +1,47 @@
+CLOCK piloté par CPU
+STROBE piloté par CPU
+DATA I/O bidirectionnel
+-lancement d'un commande sur chaque transition de STROBE de HIGH-->LOW
+-envoi de 8 bits sur DI/O avec la lecture de chaqu'un des bits sur chaque front montant de CLOCK
+
+Commande 1 : Display mode setting
+à la mise sous tension mode 11 par default
+
+0|0|0|0|0|0|b1|b0        soit 0xH
+msb		lsb
+
+00 : 4 grids, 13 segments
+01 : 5 grids, 12 segments
+10 : 6 grids, 11 segments
+11 : 7 grids, 10 segments
+
+Commande 2 : Data setting
+
+0|1|0|0|b3|b2|b1|b0      soit 4xH
+msb		lsb
+	|   |  |  |
+        |   |  0 0 Write Data to display mode
+	|   |  1 0 Read KEY Data
+	|   0 Increment Adress after DATA has been written
+	|   1 Fixes Address
+        0 Normal Operation Mode
+	1 Test Mode
+
+Commande 3 : Adress setting commands
+à la mise sous tension l'adresse est 00H
+
+1|1|0|0|b3|b2|b1|b0      soit CxH
+msb		lsb
+	|   |  |  |
+         --------------  Address: 00H to 0DH   
+
+Commande 4 : Display Control Commands
+
+1|0|0|0|b3|b2|b1|b0      soit 8xH
+msb		lsb
+	|   |--|--|--Dimming Setting voir DataSheet
+	|
+	Display Settings 
+	0 Display OFF (Key scan continues)
+	1 Display ON
+		
