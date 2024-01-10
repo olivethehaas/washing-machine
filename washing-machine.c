@@ -2,13 +2,16 @@
  * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
  *
  * SPDX-License-Identifier: BSD-3-Clause
+ *  washing machine type LG F74890WH
+ *  sniff display driver IK2102DW
+ *  https://monitor.espec.ws/files/ik2102_293.pdf
  * 
  *  gpio 02 --> data
  *  gpio 03 --> clock
  *  gpio 04 --> strobe
  * 
  * Detect a special pattern at the end of washing cycle
- * 
+ * Send Notification to NTFY.SH 
  * 
  * 
  * 
