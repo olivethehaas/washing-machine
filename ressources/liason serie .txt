@@ -44,4 +44,8 @@ msb		lsb
 	Display Settings 
 	0 Display OFF (Key scan continues)
 	1 Display ON
-		
+
+***********************************************************
+Trame d'extinction de l'afficheur 
+0x03--0x40--0xC0--0x8E--0x03--0x40--0xC1--.....
+***********************************************************
