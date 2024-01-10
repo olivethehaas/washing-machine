@@ -4,6 +4,16 @@ DATA I/O bidirectionnel
 -lancement d'un commande sur chaque transition de STROBE de HIGH-->LOW
 -envoi de 8 bits sur DI/O avec la lecture de chaqu'un des bits sur chaque front montant de CLOCK
 
+STB -------|______________________
+	       *	   *
+Clock -----|___|-------|___|-------
+               *	   *
+Data --------< D0  >-----< D1 >-----
+
+
+
+
+
 Commande 1 : Display mode setting
 à la mise sous tension mode 11 par default
 
