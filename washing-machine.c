@@ -39,7 +39,7 @@ char myBuff[BUF_SIZE];
 char header[] = "POST /RP2040-Machinealaver HTTP/1.1\r\n" \
                 "HOST: ntfy.sh\r\n" \
                 "Title: Machine Terminée\r\n" \
-                "Message: Faut vider maintenant ! !\r\n" \
+                "Message: Faut vider dans 5 min !\r\n" \
                 "Priority: high\r\n" \
                 "Tags: tada, partying_face\r\n" \
                 "\n";
@@ -189,10 +189,12 @@ int main()
     int patternSize = sizeof(pattern)/sizeof(pattern[0]);
     int incomingByte = 0;
     printf("Machine démarrage\n");
+    sleep_ms(300000);
+    printf("Sniff Sniff\n");
     PIO pio = pio0;
     uint sm = 0;
     uint offset = pio_add_program(pio, &wm_program);
-    wm_program_init(pio, sm, offset,PIO_DATA_PIN);
+    wm_program_init(pio, sm, offset,PIO_DATA_PIN); // start PIO state machine
 
     while(true){
         incomingByte = wm_program_getc(pio, sm);
@@ -209,7 +211,7 @@ int main()
             patternIndex = 0;
         }
     }
-   
+
     printf("Machine terminée\n");
 
     setup(country, ssid, pass, auth,NULL,NULL,NULL,NULL);
