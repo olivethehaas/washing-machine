@@ -15,7 +15,7 @@
 ; This program samples data with each rising clock edge (like mode 0 or mode 3
 ; SPI). The data is actually sampled one system clock cycle after the rising
 ; edge is observed
-; signals are reversed because of level shift
+
 .wrap_target
     set x,7
     wait 1 pin 2        ; wait Falling edge Toggle line 
@@ -25,6 +25,15 @@ loop:
     wait 1 pin 1
     in pins, 1          ; bit --> ISR 
     jmp x-- loop
+    mov isr, ::y
+loop1:
+    wait 0 pin 1        ; clock sample on rising edge
+    wait 1 pin 1
+    mov pins,y
+    jmp x-- loop1
+    set x,
+
+
 .wrap
 % c-sdk {
 
