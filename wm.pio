@@ -3,9 +3,10 @@
 ;
 ; SPDX-License-Identifier: BSD-3-Clause
 ;
-.define PUBLIC DATA_PIN 2   ; GPIO PINS
-.define PUBLIC CLK_PIN 3
-.define PUBLIC STB_PIN 4
+; Sample bits using an external clock, and push groups of bits into the RX FIFO.
+; - IN pin 0 is the data pin
+; - IN pin 1 is the clock pin
+; - IN pin 2 is the toggle pin
 .program wm
 
 ; Sample bits using an external clock, and push groups of bits into the RX FIFO.
@@ -17,15 +18,16 @@
 
 cmd:
     set x,7
-    wait 1 gpio STB_PIN        ; wait Falling edge Toggle line 
-    wait 0 gpio STB_PIN        ; should be a Command
+    wait 1 pin 2        ; wait Falling edge Toggle line 
+    wait 0 pin 2        ; should be a Command
 loop:
-    wait 0 gpio CLK_PIN       ; clock sample on rising edge
-    wait 1 gpio CLK_PIN
+    wait 0 pin 1        ; clock sample on rising edge
+    wait 1 pin 1
     in pins, 1          ; bit --> ISR 
     jmp x-- loop
-    wait 0 gpio CLK_PIN        ; clock high to low
-    jmp pin cmd                ; Strobe high jump new command
+    wait 0 pin 1        ; clock high to low
+    jmp pin cmd                ; Strobe high ? jump new command
+    set x,7
     jmp loop                   ; next data autopush 
 % c-sdk {
 
@@ -39,8 +41,7 @@ static inline void wm_program_init(PIO pio, uint sm, uint offset, uint pin) {
     sm_config_set_in_pins(&c, pin);
     // Set the pin directions to input at the PIO
     pio_sm_set_consecutive_pindirs(pio, sm, pin, 3, false);
-    // Connect STB_PIN to JMP pin to test the Strobe level.
-    sm_config_set_jmp_pin(&c, STB_PIN);
+   
 
     // Connect these GPIOs to this PIO block
     pio_gpio_init(pio, pin);
@@ -53,6 +54,7 @@ static inline void wm_program_init(PIO pio, uint sm, uint offset, uint pin) {
     gpio_set_inover(pin+1, GPIO_OVERRIDE_INVERT);
     gpio_set_inover(pin+2, GPIO_OVERRIDE_INVERT);
 
+    sm_config_set_jmp_pin(&c, 2); gpio 2 STROBE
 
     // Shifting to right LSB first
     sm_config_set_in_shift(
