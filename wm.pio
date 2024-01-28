@@ -3,53 +3,107 @@
 ;
 ; SPDX-License-Identifier: BSD-3-Clause
 ;
+.define PUBLIC STROBE_PIN   4
+.define PUBLIC CLOCK_PIN    3
+.define PUBLIC DATA_PIN     2
 
-.program wm
 
 ; Sample bits using an external clock, and push groups of bits into the RX FIFO.
 ; - IN pin 0 is the data pin
 ; - IN pin 1 is the clock pin
-; - IN pin 2 is the toggle pin
+; - IN pin 2 is the strobe pin
 ; - Autopush is enabled, threshold 8
 ;
 ; This program samples data with each rising clock edge (like mode 0 or mode 3
 ; SPI). The data is actually sampled one system clock cycle after the rising
 ; edge is observed
 ; signals are reversed because of level shift
+
+.program strobe_detect
+
 .wrap_target
-    set x,7
-    wait 1 pin 2        ; wait Falling edge Toggle line 
-    wait 0 pin 2        ; should be a Command
-loop:
-    wait 0 pin 1        ; clock sample on rising edge
-    wait 1 pin 1
-    in pins, 1          ; bit --> ISR 
-    jmp x-- loop
+    wait 0 pin 0        ; PINCTRL_IN_BASE --> strobe
+    irq wait 7; fire interrupt
 .wrap
+
+.program data_process
+
+.wrap_target
+    wait 1 IRQ 7        ; wait for interupt and clear flag
+    set x, 7
+get_data:
+    wait 0 pin 1        ; PINCTRL_IN_BASE + 1 --> clock
+    wait 1 pin 1
+    in pins, 1          ; PINCTRL_IN_BASE --> data
+    jmp x-- get_data 
+.wrap
+
+
 % c-sdk {
 
 #include "hardware/gpio.h"
 
-static inline void wm_program_init(PIO pio, uint sm, uint offset, uint pin) {
-    pio_sm_config c = wm_program_get_default_config(offset);
+static inline void strobe_detect_program_init(PIO pio, uint sm, uint offset) {
+    pio_sm_config c = strobe_detect_program_get_default_config(offset);
 
     // Set the IN base pin to the provided `pin` parameter. This is the data
     // pin, and the next-numbered GPIO is used as the clock pin.
-    sm_config_set_in_pins(&c, pin);
-    // Set the pin directions to input at the PIO
-    pio_sm_set_consecutive_pindirs(pio, sm, pin, 3, false);
+    sm_config_set_in_pins(&c, STROBE_PIN);
+
+    sm_config_set_clkdiv(&c, 1.3f);
+
+    pio_sm_set_consecutive_pindirs(pio, sm, STROBE_PIN, 1, false);
 
 
     // Connect these GPIOs to this PIO block
-    pio_gpio_init(pio, pin);
-    pio_gpio_init(pio, pin + 1);
-    pio_gpio_init(pio, pin + 2);
+    //pio_gpio_init(pio, STROBE_PIN);
 
     // Reverse input because of voltage conversion
 
-    gpio_set_inover(pin, GPIO_OVERRIDE_INVERT);
-    gpio_set_inover(pin+1, GPIO_OVERRIDE_INVERT);
-    gpio_set_inover(pin+2, GPIO_OVERRIDE_INVERT);
+    //pio_set_inover(STROBE_PIN, GPIO_OVERRIDE_INVERT);
+
+
+    // We only receive, so disable the TX FIFO to make the RX FIFO deeper.
+    
+    // Shifting to right LSB first
+    sm_config_set_in_shift(
+        &c,
+        true, // Shift-to-right
+        false,  // Autopush enabled
+        8      // Autopush threshold = 8
+    );
+
+    // We only receive, so disable the TX FIFO to make the RX FIFO deeper.
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+
+    // Load our configuration, and start the program from the beginning
+    pio_sm_init(pio, sm, offset, &c);
+}
+
+static inline void data_process_program_init(PIO pio, uint sm, uint offset) {
+    pio_sm_config c = data_process_program_get_default_config(offset);
+
+    // Set the IN base pin to the provided `pin` parameter. This is the data
+    // pin, and the next-numbered GPIO is used as the clock pin.
+    sm_config_set_in_pins(&c, DATA_PIN);
+    // Set the pin directions to input at the PIO
+
+    sm_config_set_clkdiv(&c, 1.3f);
+
+    pio_sm_set_consecutive_pindirs(pio, sm, DATA_PIN, 3, false);
+
+
+    // Connect these GPIOs to this PIO block
+    pio_gpio_init(pio, STROBE_PIN);
+    pio_gpio_init(pio, CLOCK_PIN);
+    pio_gpio_init(pio, DATA_PIN);
+
+    // Reverse input because of voltage conversion
+
+    gpio_set_inover(STROBE_PIN, GPIO_OVERRIDE_INVERT);
+    gpio_set_inover(CLOCK_PIN, GPIO_OVERRIDE_INVERT);
+    gpio_set_inover(DATA_PIN, GPIO_OVERRIDE_INVERT);
 
 
     // Shifting to right LSB first
@@ -65,7 +119,7 @@ static inline void wm_program_init(PIO pio, uint sm, uint offset, uint pin) {
 
     // Load our configuration, and start the program from the beginning
     pio_sm_init(pio, sm, offset, &c);
-    pio_sm_set_enabled(pio, sm, true);
+
 }
 
 static inline char wm_program_getc(PIO pio, uint sm) {
@@ -75,6 +129,8 @@ static inline char wm_program_getc(PIO pio, uint sm) {
     while (pio_sm_is_rx_fifo_empty(pio, sm))
         tight_loop_contents();
     return (char)*rxfifo_shift;
-}
+    }
+
+
 
 %}

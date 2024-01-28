@@ -31,6 +31,7 @@
 #define PIO_DATA_PIN 2
 #define BUF_SIZE 2048
 
+int incomingByte = 0;
 char ssid[] = "Livebox-ACF6";
 char pass[] = "49iQHvXum9SAarZkCE";
 uint32_t country = CYW43_COUNTRY_FRANCE;
@@ -184,34 +185,41 @@ err_t getIP(char *URL, ip_addr_t *ipResult)
 int main()
  {
     stdio_init_all();
-    char pattern[] = {0x03, 0x40, 0xC0, 0x8E, 0x03, 0x40};
-    int patternIndex = 0;
-    int patternSize = sizeof(pattern)/sizeof(pattern[0]);
-    int incomingByte = 0;
     printf("Machine démarrage\n");
-    sleep_ms(300000);
-    printf("Sniff Sniff\n");
+
     PIO pio = pio0;
-    uint sm = 0;
-    uint offset = pio_add_program(pio, &wm_program);
-    wm_program_init(pio, sm, offset,PIO_DATA_PIN); // start PIO state machine
+    uint sm0 = 0;
+    uint sm1 = 1;
+    uint offset0 = pio_add_program(pio, &data_process_program);
+    uint offset1 = pio_add_program(pio, &strobe_detect_program);
+  
+    strobe_detect_program_init(pio, sm1, offset1); // init PIO state machine
+    data_process_program_init(pio, sm0, offset0);
+    sleep_ms(60*1000);
+    pio_sm_set_enabled(pio, sm0, true);
+    pio_sm_set_enabled(pio, sm1, true);
+
 
     while(true){
-        incomingByte = wm_program_getc(pio, sm);
-        if(pattern[patternIndex] == incomingByte) 
-        {
-            if (patternIndex == patternSize-1)
-            {
-                break;
-            }
-            patternIndex ++;
-        }
-        else 
-        {
-            patternIndex = 0;
-        }
+      incomingByte = wm_program_getc(pio, sm0);
+      if (incomingByte == 0xC8){
+          incomingByte = wm_program_getc(pio, sm0);
+          if (incomingByte & (1u << 3)){  // test bit 3 == lock display on
+            break;
+          }
+      }
     }
+    printf("door closed !\n");
 
+    while(true){
+      incomingByte = wm_program_getc(pio, sm0);
+      if (incomingByte == 0xC8){
+          incomingByte = wm_program_getc(pio, sm0);
+          if ((incomingByte & (1u << 3)) == 0){  // test bit 3 == lock display off
+            break;
+          }
+      }
+    } 
     printf("Machine terminée\n");
 
     setup(country, ssid, pass, auth,NULL,NULL,NULL,NULL);
